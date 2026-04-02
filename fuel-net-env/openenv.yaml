@@ -1,0 +1,30 @@
+name: fuel-net-env
+description: >
+  Global fuel distribution network manager. Agent handles real-world
+  disruptions — strait closures, pipeline attacks, sanctions, demand spikes —
+  by rerouting shipments, managing strategic reserves, and activating
+  alternative suppliers. Hard task based on actual 2026 Strait of Hormuz crisis.
+author: Dhokla Deep Learners
+version: "1.0.0"
+tags:
+  - openenv
+  - energy
+  - fuel-distribution
+  - geopolitics
+  - crisis-management
+
+environment:
+  observation_model: fuel_env.models.FuelObservation
+  action_model: fuel_env.models.FuelAction
+  reward_model: fuel_env.models.FuelReward
+
+tasks:
+  - id: easy_refinery_maintenance
+    description: "Single refinery shutdown, simple rerouting"
+    difficulty: easy
+  - id: medium_multi_crisis
+    description: "Red Sea + heatwave + sanctions cascade"
+    difficulty: medium
+  - id: hard_hormuz_crisis
+    description: "Full Strait of Hormuz closure — based on real Feb 2026 events"
+    difficulty: hard
