@@ -1,4 +1,5 @@
 import uuid
+from typing import Union, List
 from fuel_env.models import FuelObservation, FuelAction, ShipmentStatus
 from fuel_env.world import build_world, RegionType
 from fuel_env.disruptions import load_disruptions
@@ -25,11 +26,20 @@ class FuelEnvironment:
         self.new_alerts = []
         self.failed_deliveries = 0
         self.completed_deliveries = 0
+        self.newly_delivered = []  # Track arrivals this step
         return self._build_observation()
         
-    def step(self, action: FuelAction):
+    def step(self, action: Union[FuelAction, List[FuelAction]]):
         self.new_alerts = []
-        cost = self._execute_action(action)
+        cost = 0.0
+        
+        # Execute action(s)
+        if isinstance(action, list):
+            for a in action:
+                cost += self._execute_action(a)
+        else:
+            cost = self._execute_action(action)
+            
         self.total_spent += cost
 
         self.current_day += 1
@@ -37,9 +47,9 @@ class FuelEnvironment:
         new_disruptions = self._process_disruptions()
         self._update_price()
         
-        delivered_this_step = self._advance_shipments()
+        self.newly_delivered = self._advance_shipments()
 
-        fulfillment, reserve_changes = self._calculate_fulfillment_and_reserves(delivered_this_step)
+        fulfillment, reserve_changes = self._calculate_fulfillment_and_reserves(self.newly_delivered)
         self.daily_fulfillment.append(fulfillment)
 
         shortage_regions = [r for r, pct in fulfillment.items() if pct < 0.5]
@@ -61,6 +71,26 @@ class FuelEnvironment:
             day=self.current_day,
             total_days=self.task["episode_length"]
         )
+
+        # 📊 Internal logging silenced for high-fidelity agent dashboard
+        # print(f"\n--- 🌏 Day {self.current_day} Update ---")
+        # for r, pct in fulfillment.items():
+        #     status = "✅" if pct >= 0.9 else "⚠️" if pct >= 0.5 else "🚨"
+        #     print(f"  {status} {r.replace('_', ' ').capitalize()}: {pct*100:.1f}% supply")
+        
+        # for r, change in reserve_changes.items():
+        #     if change < -500000:
+        #         print(f"  🔋 Reserves: Drawing {abs(change)/1000000:.1f}M bbl in {r}")
+        
+        # if cost > 0:
+        #     print(f"  💸 Cost: ${cost/1000000:.1f}M spent on {action.action_type}")
+        
+        # if new_disruptions:
+        #     for d_msg in self.new_alerts:
+        #         if "Disruption ended" not in d_msg:
+        #             print(f"  🔥 CRISIS ALERT: {d_msg}")
+
+        # print(f"  ⭐ Step Reward: {reward:+.2f}")
 
         return self._build_observation(), reward, self.done, {}
 
@@ -231,6 +261,7 @@ class FuelEnvironment:
             active_disruptions=active_disruptions,
             new_alerts=self.new_alerts,
             active_shipments=self.shipments,
+            newly_delivered=self.newly_delivered,
             completed_deliveries=self.completed_deliveries,
             failed_deliveries=self.failed_deliveries,
             demand_fulfillment=self.daily_fulfillment[-1] if self.daily_fulfillment else {r.region_id: 1.0 for r in self.regions.values() if r.region_type == RegionType.CONSUMER},

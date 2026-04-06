@@ -124,7 +124,7 @@ REGIONS_TEMPLATE = {
         current_output=750_000,
         demand=5_500_000,
         storage_capacity=40_000_000,
-        current_storage=25_000_000,
+        current_storage=8_000_000,
         operational=True,
         price_per_barrel=80.0,
     ),
@@ -203,7 +203,7 @@ ROUTES_TEMPLATE = [
 ]
 
 def build_world():
-    """Returns a deepcopy of regions and routes for a fresh environment."""
-    regions_copy = {k: v.copy(deep=True) for k, v in REGIONS_TEMPLATE.items()}
-    routes_copy = [r.copy(deep=True) for r in ROUTES_TEMPLATE]
+    """Returns a fresh deepcopy of regions and routes, ensuring a clean simulation reset."""
+    regions_copy = copy.deepcopy(REGIONS_TEMPLATE)
+    routes_copy = copy.deepcopy(ROUTES_TEMPLATE)
     return regions_copy, routes_copy

@@ -32,6 +32,7 @@ class FuelObservation(BaseModel):
 
     # Shipments
     active_shipments: List[ShipmentStatus]
+    newly_delivered: List[ShipmentStatus]  # Ships that arrived this morning
     completed_deliveries: int
     failed_deliveries: int             # Markets that ran dry
 

@@ -1,7 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from typing import Union, List
 import uvicorn
 
+import traceback
 from fuel_env.environment import FuelEnvironment
 from fuel_env.models import FuelAction
 from fuel_env.graders import grade_episode
@@ -10,13 +12,19 @@ from fuel_env.tasks import TASKS
 app = FastAPI(title="FuelNetEnv API")
 env = FuelEnvironment()
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    print(f"🔥 SERVER CRASH: {exc}")
+    traceback.print_exc()
+    return HTTPException(status_code=500, detail=str(exc))
+
 @app.post("/reset")
 def reset_env(task_id: str = "easy_refinery_maintenance"):
     obs = env.reset(task_id)
     return obs.model_dump()
 
 @app.post("/step")
-def step_env(action: FuelAction):
+def step_env(action: Union[FuelAction, List[FuelAction]]):
     if env.done:
         raise HTTPException(status_code=400, detail="Episode already done. Please reset.")
     obs, reward, done, info = env.step(action)

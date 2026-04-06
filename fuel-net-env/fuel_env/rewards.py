@@ -1,7 +1,8 @@
+from typing import Union, List
 from fuel_env.models import FuelAction
 
 def compute_reward(demand_fulfillment, shipment_costs, reserve_changes,
-                   shortage_regions, action: FuelAction, budget_remaining, total_budget,
+                   shortage_regions, action: Union[FuelAction, List[FuelAction]], budget_remaining, total_budget,
                    new_disruptions, done, day, total_days):
     reward = 0.0
 
@@ -35,9 +36,11 @@ def compute_reward(demand_fulfillment, shipment_costs, reserve_changes,
             reward += 0.1              # Building reserves is good
 
     # 5. PROACTIVE BONUS — rerouting before a disruption fully hits
-    if action.action_type in ["reroute_shipment", "activate_alternative_supplier"]:
-        if new_disruptions:
-            reward += 1.5              # Acted same day as disruption
+    actions_list = action if isinstance(action, list) else [action]
+    is_proactive = any(a.action_type in ["reroute_shipment", "activate_alternative_supplier"] for a in actions_list)
+    
+    if is_proactive and new_disruptions:
+        reward += 1.5              # Acted same day as disruption
 
     # 6. EPISODE END
     if done:
