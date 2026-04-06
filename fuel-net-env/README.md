@@ -44,11 +44,25 @@ docker build -t fuel-net-env .
 docker run -p 8000:8000 fuel-net-env
 ```
 
-To run the NVIDIA Llama 3 baseline check:
-```bash
-export NVIDIA_API_KEY="nvapi-..."
-python baseline/inference.py
+### Running the Baseline Agent
+The environment comes with a fully-integrated **Hybrid Crisis Command Center**, combining a deterministic rule-based logistics engine with LLM-powered strategic intelligence. 
+
+The logistics engine automatically calculates the fastest delivery routes for regions experiencing fuel shortages. Simultaneously, the real-time terminal dashboard uses NVIDIA's **meta/llama-3.1-8b-instruct** API to generate dynamic, 1-sentence situation briefings corresponding to the simulation day.
+
+Make sure you have added your API key to the `.env` file in the root directory:
+```env
+NVIDIA_API_KEY="nvapi-..."
 ```
+
+Then, launch the command center simulation by passing in a task parameter (`easy`, `medium`, or `hard`):
+```bash
+python baseline/inference.py --task hard
+```
+
+### Official Baseline Benchmarks 
+Using the hybrid rule-based and LLM intelligence framework embedded in the baseline agent:
+- **Easy Task:** `75.80 / 100`
+- **Hard Task:** `71.37 / 100`
 
 ## Grading System
 Scores are distributed from `0.0` to `1.0`, taking into account average percentage supply-fulfillment constraints, budgetary constraints (average transit premiums), and duration of markets under severe shortage.

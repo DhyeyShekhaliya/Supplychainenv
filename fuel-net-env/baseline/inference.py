@@ -150,20 +150,37 @@ def run_episode(task_id="easy_refinery_maintenance", base_url="http://localhost:
         # 📊 RENDER DASHBOARD
         day = obs['current_day']
         progress = get_progress_bar(day, total_days)
+        history.append({"day": day, "reward": reward})
+        
         print(f"{C_BOLD}{C_CYAN}┌{'─'*68}┐{C_RESET}")
         print(f"{C_BOLD}{C_CYAN}│ DAY {day:02d}/{total_days}  {progress}  Reward: {reward:+.2f} │{C_RESET}")
         print(f"{C_BOLD}{C_CYAN}├{'─'*68}┤{C_RESET}")
         
-        # Reason wrapping
-        reason = action_dict[0].get('reasoning', '')
-        wrapped_reason = textwrap.wrap(f"{C_YELLOW}AI ANALYSIS:{C_RESET} {reason}", 66)
-        for line in wrapped_reason:
-            print(f"{C_BOLD}{C_CYAN}│{C_RESET} {line:<66} {C_BOLD}{C_CYAN}│{C_RESET}")
+        # AGENT LOG & RAW JSON
+        reason = action_dict[0].get('reasoning', '') if isinstance(action_dict, list) else action_dict.get('reasoning', '')
+        wrapped_reason = textwrap.wrap(f"{C_YELLOW}AGENT LOG:{C_RESET} {reason}", 66)
         
-        # Shipment Arrivals (NEW SECTION)
+        # Strip reasoning from raw json display to keep it clean
+        clean_actions = [{"action_type": a.get("action_type"), "parameters": a.get("parameters", {})} for a in action_dict] if isinstance(action_dict, list) else action_dict
+        wrapped_raw = textwrap.wrap(f"{C_YELLOW}RAW JSON:{C_RESET} {json.dumps(clean_actions)}", 66)
+        
+        for line in wrapped_reason + [""] + wrapped_raw:
+            if line == "":
+                print(f"{C_BOLD}{C_CYAN}│{C_RESET} {' '*66} {C_BOLD}{C_CYAN}│{C_RESET}")
+            else:
+                print(f"{C_BOLD}{C_CYAN}│{C_RESET} {line:<66} {C_BOLD}{C_CYAN}│{C_RESET}")
+        
+        # REWARD HISTORY
+        print(f"{C_BOLD}{C_CYAN}├─ REWARD HISTORY {'─'*50}┤{C_RESET}")
+        recent_history = history[-5:] # Show last 5 days
+        history_items = [f"D{h['day']:02d}: {h['reward']:+5.2f}" for h in recent_history]
+        history_line = "   ".join(history_items)
+        print(f"{C_BOLD}{C_CYAN}│{C_RESET} {history_line:<66} {C_BOLD}{C_CYAN}│{C_RESET}")
+        
+        # DISCOVERIES (Shipment Arrivals)
         arrivals = obs.get("newly_delivered", [])
         if arrivals:
-            print(f"{C_BOLD}{C_CYAN}├─ SHIPMENT ARRIVALS {'─'*48}┤{C_RESET}")
+            print(f"{C_BOLD}{C_CYAN}├─ DISCOVERIES (ARRIVALS) {'─'*42}┤{C_RESET}")
             for s in arrivals:
                 from_reg = s.get('from_region') if isinstance(s, dict) else s.from_region
                 to_reg = s.get('to_region') if isinstance(s, dict) else s.to_region
@@ -172,7 +189,7 @@ def run_episode(task_id="easy_refinery_maintenance", base_url="http://localhost:
                 arrival_info = f"🚢 +{vol/1e6:.1f}M bbl to {to_reg.title()} (Took {days} days) from {from_reg.title()}"
                 print(f"{C_BOLD}{C_CYAN}│{C_RESET} {C_GREEN}{arrival_info:<66}{C_RESET} {C_BOLD}{C_CYAN}│{C_RESET}")
 
-        print(f"{C_BOLD}{C_CYAN}├{'─'*68}┤{C_RESET}")
+        print(f"{C_BOLD}{C_CYAN}├─ LOGISTICS PLAN {'─'*50}┤{C_RESET}")
         
         # Logistics Table
         for action in action_dict:
@@ -186,15 +203,30 @@ def run_episode(task_id="easy_refinery_maintenance", base_url="http://localhost:
             else:
                 print(f"{C_BOLD}{C_CYAN}│{C_RESET} {C_YELLOW}⏳ COMMAND: {act_type:<55}{C_RESET} {C_BOLD}{C_CYAN}│{C_RESET}")
         
+        demands_map = { r.get("region_id", ""): r.get("demand", 0) for r in obs.get("regions", []) }
+        fulfillment = obs.get("demand_fulfillment", {})
+        
+        # VIOLATIONS (Shortages)
+        shortage_regions = [r.replace('_', ' ').title() for r, pct in fulfillment.items() if pct < 0.5]
+        if shortage_regions:
+            print(f"{C_BOLD}{C_CYAN}├─ VIOLATIONS {'─'*54}┤{C_RESET}")
+            viol_str = f"⚠️ CRITICAL SHORTAGE IN: {', '.join(shortage_regions)}"
+            for line in textwrap.wrap(viol_str, 66):
+                print(f"{C_BOLD}{C_CYAN}│{C_RESET} {C_RED}{line:<66}{C_RESET} {C_BOLD}{C_CYAN}│{C_RESET}")
+
         print(f"{C_BOLD}{C_CYAN}├─ SUPPLY LEVELS {'─'*51}┤{C_RESET}")
         
-        fulfillment = obs.get("demand_fulfillment", {})
         for region, pct in fulfillment.items():
+            demand = demands_map.get(region, 0)
+            supplied = demand * pct
+            supply_str = f"{supplied/1e6:>4.1f}M / {demand/1e6:>4.1f}M"
+            
             color = C_GREEN if pct >= 0.9 else C_YELLOW if pct >= 0.5 else C_RED
             status = "STABLE" if pct >= 0.9 else "CRITICAL" if pct < 0.2 else "SHORTAGE"
             bar_pct = int(pct * 20)
             fill_bar = f"{color}{'█'*bar_pct}{' '*(20-bar_pct)}{C_RESET}"
-            print(f"{C_BOLD}{C_CYAN}│{C_RESET} {region.replace('_',' ').title():<15} {fill_bar} {color}{pct*100:5.1f}%{C_RESET} | {color}{status:<8}{C_RESET} {C_BOLD}{C_CYAN}│{C_RESET}")
+            
+            print(f"{C_BOLD}{C_CYAN}│{C_RESET} {region.replace('_',' ').title():<12} {fill_bar} {color}{pct*100:>6.1f}%{C_RESET} {C_YELLOW}{supply_str:>14}{C_RESET} │ {color}{status:<8}{C_RESET} {C_BOLD}{C_CYAN}│{C_RESET}")
         
         print(f"{C_BOLD}{C_CYAN}└{'─'*68}┘{C_RESET}")
         time.sleep(1) # Dramatic pause for demo
