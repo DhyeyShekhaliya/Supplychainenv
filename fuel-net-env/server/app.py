@@ -95,23 +95,60 @@ def run_step_advanced():
     obs_d = env._build_observation().model_dump()
     action_dict = llm_agent_action(obs_d)
 
-    # Normalize LLM output: wrap flat dicts into FuelAction format
+    # Normalize LLM output: wrap any format into FuelAction schema
+    ROUTE_LOOKUP = {r.get('route_id'): r for r in obs_d.get('routes', [])}
+    
     def normalize_action(a):
+        # Unwrap nested "ship_fuel" / "hold" keys
+        if "ship_fuel" in a:
+            inner = a["ship_fuel"]
+            if isinstance(inner, list):
+                return [normalize_action(x) for x in inner]
+            a = inner
+        if "hold" in a:
+            return {"action_type": "hold", "parameters": {}}
+        
+        # Already correct format
         if "action_type" in a and "parameters" in a:
-            return a  # Already correct format
-        # LLM output flat format like {"route_id": "x", "volume": 5000000}
-        if "route_id" in a or "from" in a or "to" in a:
-            params = {}
-            for k in ["from", "to", "route", "route_id", "volume"]:
-                if k in a:
-                    params["route" if k == "route_id" else k] = a[k]
+            p = a["parameters"]
+            # Fill missing from/to from route lookup
+            rid = p.get("route") or p.get("route_id", "")
+            if rid and rid in ROUTE_LOOKUP:
+                r = ROUTE_LOOKUP[rid]
+                if not p.get("from"): p["from"] = r.get("from_region", "")
+                if not p.get("to"): p["to"] = r.get("to_region", "")
+                if "route_id" in p: p["route"] = p.pop("route_id")
+            if p.get("volume"): p["volume"] = int(float(p["volume"]))
+            return a
+        
+        # Flat format: {"route_id": "x", "volume": 5000000, ...}
+        if "route_id" in a or "route" in a or "from" in a:
+            rid = a.get("route_id") or a.get("route", "")
+            params = {"route": rid, "volume": int(float(a.get("volume", 5000000)))}
+            if rid and rid in ROUTE_LOOKUP:
+                r = ROUTE_LOOKUP[rid]
+                params["from"] = a.get("from") or a.get("source") or a.get("producer") or r.get("from_region", "")
+                params["to"] = a.get("to") or a.get("destination") or a.get("consumer") or r.get("to_region", "")
+            else:
+                params["from"] = a.get("from", "")
+                params["to"] = a.get("to", "")
+            if not params["from"] or not params["to"]:
+                return {"action_type": "hold", "parameters": {}}
             return {"action_type": "ship_fuel", "parameters": params}
         return {"action_type": "hold", "parameters": {}}
     
+    normalized = []
     if isinstance(action_dict, list):
-        action_dict = [normalize_action(a) for a in action_dict]
+        for a in action_dict:
+            result = normalize_action(a)
+            if isinstance(result, list):
+                normalized.extend(result)
+            else:
+                normalized.append(result)
     elif isinstance(action_dict, dict):
-        action_dict = [normalize_action(action_dict)]
+        result = normalize_action(action_dict)
+        normalized = result if isinstance(result, list) else [result]
+    action_dict = normalized if normalized else [{"action_type": "hold", "parameters": {}}]
 
     try:
         total_days = env.task["episode_length"]
@@ -135,7 +172,12 @@ def run_step_advanced():
     else:
         parsed_actions = FuelAction(**action_dict)
 
-    obs, reward, done, info = env.step(parsed_actions)
+    try:
+        obs, reward, done, info = env.step(parsed_actions)
+    except Exception as step_err:
+        import sys
+        print(f"[ENV DEBUG] env.step failed: {step_err}", file=sys.stderr)
+        return {"observation": obs_d, "reward": 0, "done": False, "action": action_dict, "reasoning": f"Step error: {step_err}"}
     
     return {
         "observation": obs.model_dump(),
