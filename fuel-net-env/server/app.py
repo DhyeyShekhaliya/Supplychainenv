@@ -49,6 +49,10 @@ def get_state():
     obs = env._build_observation()
     return obs.model_dump()
 
+@app.get("/config")
+def get_config():
+    return {"task": env.task}
+
 @app.get("/tasks")
 def get_tasks():
     return TASKS
