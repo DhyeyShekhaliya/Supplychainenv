@@ -35,32 +35,60 @@ def call_llm_with_retry(messages, model="meta/llama-3.1-8b-instruct", max_retrie
     return ""
 
 def llm_agent_action(obs):
-    """Uses LLM to select actions dynamically. Falls back to baseline on failure."""
-    state_desc = f"""
-    You are an AI logistics director.
-    Day: {obs.get('current_day', 0)}/30
-    Shortages: {obs.get('markets_in_shortage', [])}
+    """Uses LLM to dynamically choose logistics actions based on full world state."""
+    # Build compact route table for LLM
+    route_info = []
+    for r in obs.get('routes', []):
+        if r.get('active'):
+            route_info.append(f"  {r['route_id']}: {r.get('from_region','?')} → {r.get('to_region','?')} ({r.get('current_transit_days','?')}d, ${r.get('cost_per_barrel','?')}/bbl, cap {r.get('capacity_per_day',0)//1_000_000}M/day)")
+    routes_str = "\n".join(route_info) if route_info else "  None available"
     
-    Output ONLY a valid JSON array of actions:
-    [{{ "action_type": "ship_fuel", "parameters": {{"from": "us_shale", "to": "europe", "volume": 5000000}} }}]
-    Or [{{ "action_type": "hold", "parameters": {{}} }}] if no action needed.
-    """
+    # Build demand fulfillment summary
+    ful = obs.get('demand_fulfillment', {})
+    ful_str = ", ".join([f"{k}: {v:.0%}" for k, v in ful.items()]) if ful else "unknown"
+    
+    # Reserve levels
+    reserves = obs.get('reserve_levels', {})
+    res_str = ", ".join([f"{k}: {v.get('days_of_cover',0):.0f}d cover" for k, v in reserves.items()]) if reserves else "unknown"
+
+    system_prompt = """You are a fuel supply chain AI. You MUST respond with ONLY a JSON array. No text before or after.
+Rules:
+- Use ship_fuel to send oil from producers to consumers via active routes
+- Use hold ONLY if all consumers have >95% fulfillment
+- Always use exact route_id values from the Available Routes list
+- volume must be an integer (barrels per day), max = route capacity"""
+
+    user_prompt = f"""Day {obs.get('current_day', 0)}/{obs.get('total_days', 30)} | Budget: ${obs.get('remaining_budget', 0):,.0f} remaining
+Task: {obs.get('task_description', 'Manage supply chain')}
+Markets in shortage: {obs.get('markets_in_shortage', [])}
+Demand fulfillment: {ful_str}
+Reserves: {res_str}
+
+Available Routes:
+{routes_str}
+
+Respond with a JSON array. Example:
+[{{"action_type":"ship_fuel","parameters":{{"from":"hormuz","to":"india","route":"hormuz_india","volume":5000000}}}},{{"action_type":"ship_fuel","parameters":{{"from":"russia","to":"europe","route":"russia_europe_pipe","volume":4000000}}}}]"""
+
     try:
         raw = call_llm_with_retry([
-            {"role": "system", "content": "You are a JSON-only logistics AI robot."},
-            {"role": "user", "content": state_desc}
-        ], max_retries=1)
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ], max_retries=2)
         
         if raw:
             import re
-            clean_str = raw.strip().replace('\n', '')
-            match = re.search(r'\[.*?\]', clean_str)
-            if match:
-                return json.loads(match.group(0))
+            clean_str = raw.strip().replace('\n', '').replace('```json', '').replace('```', '')
+            # Try full string first, then regex extract
+            try:
+                return json.loads(clean_str)
+            except json.JSONDecodeError:
+                match = re.search(r'\[.*\]', clean_str, re.DOTALL)
+                if match:
+                    return json.loads(match.group(0))
     except Exception:
         pass
     
-    # Strict LLM dynamic mode: If LLM fails, we hold position. No mathematical fallback allowed.
     return [{"action_type": "hold", "parameters": {}}]
 
 def run_episode(task_id="easy_refinery_maintenance"):
