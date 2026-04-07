@@ -25,9 +25,13 @@ def get_progress_bar(current, total, width=30):
     return f"{C_CYAN}[{bar}]{C_RESET}"
 
 # ─── Initialization ──────────────────────────────────────────────────────────
+API_BASE_URL = os.environ.get("API_BASE_URL", "https://integrate.api.nvidia.com/v1")
+MODEL_NAME = os.environ.get("MODEL_NAME", "meta/llama-3.1-8b-instruct")
+HF_TOKEN = os.environ.get("HF_TOKEN", os.environ.get("NVIDIA_API_KEY", ""))
+
 client = OpenAI(
-    base_url="https://integrate.api.nvidia.com/v1",
-    api_key=os.environ.get("NVIDIA_API_KEY", "dummy-key-for-testing")
+    base_url=API_BASE_URL,
+    api_key=HF_TOKEN
 )
 
 ROUTE_REFERENCE = """ROUTE REFERENCE:
@@ -83,7 +87,7 @@ def rule_based_action(obs):
     except Exception as e:
         return [{"action_type": "hold", "parameters": {}, "reasoning": f"Strategy adjustment needed. ⏳"}]
 
-def call_llm_with_retry(messages, model="meta/llama-3.1-8b-instruct", max_retries=3):
+def call_llm_with_retry(messages, model=MODEL_NAME, max_retries=3):
     for attempt in range(max_retries):
         try:
             completion = client.chat.completions.create(model=model, messages=messages, temperature=0.6, top_p=0.9, max_tokens=1024)
@@ -106,6 +110,8 @@ def run_episode(task_id="easy_refinery_maintenance", base_url="http://localhost:
     except:
         print(f"{C_RED}❌ Connection Error: Ensure server is running on {base_url}{C_RESET}")
         return
+
+    print(f"[START] task={task_id} env=fuel-net-env model={MODEL_NAME}", flush=True)
 
     done = False
     history = []
@@ -146,6 +152,12 @@ def run_episode(task_id="easy_refinery_maintenance", base_url="http://localhost:
         reward = step_data.get("reward", 0.0)
         obs = step_data["observation"]
         done = step_data["done"]
+        
+        # OpenEnv strict stdout
+        step = obs.get("current_day", 0)
+        action_str = json.dumps(action_dict).replace("\n", "")
+        done_str = str(done).lower()
+        print(f"[STEP] step={step} action={action_str} reward={reward:.2f} done={done_str} error=null", flush=True)
 
         # 📊 RENDER DASHBOARD
         day = obs['current_day']
@@ -234,6 +246,12 @@ def run_episode(task_id="easy_refinery_maintenance", base_url="http://localhost:
     # Final Summary
     grader_resp = requests.post(f"{base_url}/grader")
     score = grader_resp.json().get("score", 0.0)
+    
+    success_str = str(score > 0.5).lower()
+    rewards_str = ",".join(f"{h['reward']:.2f}" for h in history)
+    steps_taken = obs.get("current_day", total_days)
+    print(f"[END] success={success_str} steps={steps_taken} score={score:.3f} rewards={rewards_str}", flush=True)
+    
     print(f"\n{C_BOLD}{C_GREEN}🏁 SIMULATION COMPLETE{C_RESET}")
     print(f"{C_BOLD}🏆 FINAL MISSION SCORE: {C_GREEN}{score*100:.2f}/100{C_RESET}\n")
 

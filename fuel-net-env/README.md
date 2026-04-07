@@ -1,3 +1,12 @@
+---
+title: Fuel Net Env
+emoji: 🛢️
+colorFrom: red
+colorTo: yellow
+sdk: docker
+pinned: false
+---
+
 # FuelNetEnv — World Fuel Distribution Network Manager
 
 ## About This Project
@@ -49,14 +58,16 @@ The environment comes with a fully-integrated **Hybrid Crisis Command Center**, 
 
 The logistics engine automatically calculates the fastest delivery routes for regions experiencing fuel shortages. Simultaneously, the real-time terminal dashboard uses NVIDIA's **meta/llama-3.1-8b-instruct** API to generate dynamic, 1-sentence situation briefings corresponding to the simulation day.
 
-Make sure you have added your API key to the `.env` file in the root directory:
+Make sure you configure the mandatory **OpenEnv** variables in your `.env` file at the root directory:
 ```env
-NVIDIA_API_KEY="nvapi-..."
+API_BASE_URL="https://integrate.api.nvidia.com/v1"
+MODEL_NAME="meta/llama-3.1-8b-instruct"
+HF_TOKEN="nvapi-YOUR-NVIDIA-KEY"
 ```
 
 Then, launch the command center simulation by passing in a task parameter (`easy`, `medium`, or `hard`):
 ```bash
-python baseline/inference.py --task hard
+python inference.py --task hard
 ```
 
 ### Official Baseline Benchmarks 
