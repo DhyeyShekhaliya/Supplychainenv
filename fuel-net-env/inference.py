@@ -20,22 +20,57 @@ except Exception:
 
 ENV_BASE_URL = "http://localhost:7860"
 
-def call_llm_with_retry(messages, model="meta/llama-3.1-8b-instruct", max_retries=3):
-    import time
+def call_llm_with_retry(messages, model=None, max_retries=3):
+    import time, sys
+    model = model or MODEL_NAME
     for attempt in range(max_retries):
         try:
-            if not client: return ""
-            completion = client.chat.completions.create(model=model, messages=messages, temperature=0.6, top_p=0.9, max_tokens=256)
-            return completion.choices[0].message.content
+            if not client:
+                print("[LLM DEBUG] client is None - OpenAI init failed", file=sys.stderr)
+                return ""
+            completion = client.chat.completions.create(model=model, messages=messages, temperature=0.7, top_p=0.9, max_tokens=512)
+            result = completion.choices[0].message.content
+            print(f"[LLM DEBUG] Got response: {result[:100]}...", file=sys.stderr)
+            return result
         except Exception as e:
+            print(f"[LLM DEBUG] Attempt {attempt+1} failed: {e}", file=sys.stderr)
             if "429" in str(e) and attempt < max_retries - 1:
                 time.sleep(3)
             else:
                 return ""
     return ""
 
+def _smart_actions(obs):
+    """Deterministic logic that actually ships fuel to shortage markets."""
+    actions = []
+    consumers = [r for r in obs.get("regions", []) if r.get("region_type") == "consumer"]
+    fulfillment = obs.get("demand_fulfillment", {})
+    routes = obs.get("routes", [])
+    
+    for region in consumers:
+        r_id = region["region_id"]
+        if fulfillment.get(r_id, 1.0) < 0.95:
+            viable = sorted(
+                [r for r in routes if r.get("to_region") == r_id and r.get("active", True)],
+                key=lambda r: r.get("current_transit_days", 999)
+            )
+            if viable:
+                best = viable[0]
+                vol = min(region.get("demand", 5000000), best.get("capacity_per_day", 5000000))
+                actions.append({
+                    "action_type": "ship_fuel",
+                    "parameters": {
+                        "from": best.get("from_region", ""),
+                        "to": r_id,
+                        "route": best.get("route_id", ""),
+                        "volume": int(vol)
+                    }
+                })
+    return actions if actions else [{"action_type": "hold", "parameters": {}}]
+
 def llm_agent_action(obs):
-    """Uses LLM to dynamically choose logistics actions based on full world state."""
+    """Hybrid: tries LLM first, uses smart deterministic if LLM fails."""
+    import sys
     # Build compact route table for LLM
     route_info = []
     for r in obs.get('routes', []):
@@ -43,32 +78,29 @@ def llm_agent_action(obs):
             route_info.append(f"  {r['route_id']}: {r.get('from_region','?')} → {r.get('to_region','?')} ({r.get('current_transit_days','?')}d, ${r.get('cost_per_barrel','?')}/bbl, cap {r.get('capacity_per_day',0)//1_000_000}M/day)")
     routes_str = "\n".join(route_info) if route_info else "  None available"
     
-    # Build demand fulfillment summary
     ful = obs.get('demand_fulfillment', {})
     ful_str = ", ".join([f"{k}: {v:.0%}" for k, v in ful.items()]) if ful else "unknown"
     
-    # Reserve levels
     reserves = obs.get('reserve_levels', {})
-    res_str = ", ".join([f"{k}: {v.get('days_of_cover',0):.0f}d cover" for k, v in reserves.items()]) if reserves else "unknown"
+    res_str = ", ".join([f"{k}: {v.get('days_of_cover',0):.0f}d" for k, v in reserves.items() if v.get('capacity', 0) > 0]) if reserves else "unknown"
 
-    system_prompt = """You are a fuel supply chain AI. You MUST respond with ONLY a JSON array. No text before or after.
+    system_prompt = """You are a fuel supply chain AI. Respond with ONLY a JSON array, no other text.
 Rules:
-- Use ship_fuel to send oil from producers to consumers via active routes
-- Use hold ONLY if all consumers have >95% fulfillment
-- Always use exact route_id values from the Available Routes list
-- volume must be an integer (barrels per day), max = route capacity"""
+- Use ship_fuel to send oil from producers to consumers via routes
+- Use hold ONLY if ALL consumers have >95% fulfillment
+- Always use exact route_id from Available Routes
+- volume = integer (barrels/day), max is route capacity"""
 
-    user_prompt = f"""Day {obs.get('current_day', 0)}/{obs.get('total_days', 30)} | Budget: ${obs.get('remaining_budget', 0):,.0f} remaining
-Task: {obs.get('task_description', 'Manage supply chain')}
-Markets in shortage: {obs.get('markets_in_shortage', [])}
-Demand fulfillment: {ful_str}
+    user_prompt = f"""Day {obs.get('current_day', 0)}/{obs.get('total_days', 30)} | Budget: ${obs.get('remaining_budget', 0):,.0f}
+Task: {obs.get('task_description', '')}
+Shortages: {obs.get('markets_in_shortage', [])}
+Fulfillment: {ful_str}
 Reserves: {res_str}
 
-Available Routes:
+Routes:
 {routes_str}
 
-Respond with a JSON array. Example:
-[{{"action_type":"ship_fuel","parameters":{{"from":"hormuz","to":"india","route":"hormuz_india","volume":5000000}}}},{{"action_type":"ship_fuel","parameters":{{"from":"russia","to":"europe","route":"russia_europe_pipe","volume":4000000}}}}]"""
+JSON array:"""
 
     try:
         raw = call_llm_with_retry([
@@ -79,17 +111,24 @@ Respond with a JSON array. Example:
         if raw:
             import re
             clean_str = raw.strip().replace('\n', '').replace('```json', '').replace('```', '')
-            # Try full string first, then regex extract
             try:
-                return json.loads(clean_str)
+                result = json.loads(clean_str)
+                if isinstance(result, list) and len(result) > 0:
+                    print(f"[LLM DEBUG] Parsed {len(result)} actions from LLM", file=sys.stderr)
+                    return result
             except json.JSONDecodeError:
                 match = re.search(r'\[.*\]', clean_str, re.DOTALL)
                 if match:
-                    return json.loads(match.group(0))
-    except Exception:
-        pass
+                    result = json.loads(match.group(0))
+                    if isinstance(result, list) and len(result) > 0:
+                        print(f"[LLM DEBUG] Regex-extracted {len(result)} actions", file=sys.stderr)
+                        return result
+    except Exception as e:
+        print(f"[LLM DEBUG] llm_agent_action failed: {e}", file=sys.stderr)
     
-    return [{"action_type": "hold", "parameters": {}}]
+    # LLM failed → use smart deterministic actions so ships actually move
+    print("[LLM DEBUG] Falling back to smart deterministic actions", file=sys.stderr)
+    return _smart_actions(obs)
 
 def run_episode(task_id="easy_refinery_maintenance"):
     # 1. Print Standard START string strictly for Meta RegEx parser
