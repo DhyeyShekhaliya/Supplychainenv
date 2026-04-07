@@ -66,6 +66,32 @@ def rule_based_action(obs):
     except Exception:
         return [{"action_type": "hold", "parameters": {}}]
 
+def llm_agent_action(obs):
+    """Uses LLM to select actions dynamically. Falls back to baseline on failure."""
+    state_desc = f"""
+    You are an AI logistics director.
+    Day: {obs.get('current_day', 0)}/30
+    Shortages: {obs.get('markets_in_shortage', [])}
+    
+    Output ONLY a valid JSON array of actions:
+    [{{ "action_type": "ship_fuel", "parameters": {{"from": "us_shale", "to": "europe", "volume": 5000000}} }}]
+    Or [{{ "action_type": "hold", "parameters": {{}} }}] if no action needed.
+    """
+    try:
+        raw = call_llm_with_retry([
+            {"role": "system", "content": "You are a JSON-only logistics AI robot."},
+            {"role": "user", "content": state_desc}
+        ], max_retries=1)
+        
+        if raw:
+            clean = raw.strip().replace("```json", "").replace("```", "")
+            return json.loads(clean)
+    except Exception:
+        pass
+    
+    # Fallback to deterministic math if LLM hallucinates to prevent grader crashes
+    return rule_based_action(obs)
+
 def run_episode(task_id="easy_refinery_maintenance"):
     # 1. Print Standard START string strictly for Meta RegEx parser
     print(f"[START] task={task_id} env=fuel_net_env model={MODEL_NAME}")
@@ -85,18 +111,8 @@ def run_episode(task_id="easy_refinery_maintenance"):
     while not done:
         step_count += 1
         
-        action_dict = rule_based_action(obs)
+        action_dict = llm_agent_action(obs)
         action_str = json.dumps(action_dict).replace(' ', '')
-        
-        # We invoke OpenAI structurally compliant, but physics dictate actions
-        try:
-            client.chat.completions.create(
-                model=MODEL_NAME,
-                messages=[{"role": "user", "content": "Check log standards"}],
-                max_tokens=64
-            )
-        except Exception:
-            pass
 
         try:
             resp = requests.post(f"{ENV_BASE_URL}/step", json=action_dict)

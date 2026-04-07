@@ -87,13 +87,13 @@ def run_baseline(task_id: str = "easy_refinery_maintenance"):
 def run_step_advanced():
     import sys
     sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-    from inference import rule_based_action, call_llm_with_retry
+    from inference import llm_agent_action, call_llm_with_retry
 
     if env.done:
         return {"done": True, "error": "Episode finished"}
 
     obs_d = env._build_observation().model_dump()
-    action_dict = rule_based_action(obs_d)
+    action_dict = llm_agent_action(obs_d)
 
     try:
         total_days = env.task["episode_length"]
