@@ -34,38 +34,6 @@ def call_llm_with_retry(messages, model="meta/llama-3.1-8b-instruct", max_retrie
                 return ""
     return ""
 
-def rule_based_action(obs):
-    """Baseline logistics rules acting as the fallback engine."""
-    actions = []
-    try:
-        consumers = [r for r in obs.get("regions", []) if r.get("region_type") == "consumer"]
-        fulfillment = obs.get("demand_fulfillment", {})
-        routes = obs.get("routes", [])
-
-        for region in consumers:
-            r_id = region["region_id"]
-            if fulfillment.get(r_id, 1.0) < 0.99:
-                viable = sorted(
-                    [r for r in routes if r.get("to_region") == r_id and r.get("active", True)],
-                    key=lambda r: r.get("current_transit_days", 999)
-                )
-                if viable:
-                    best_route = viable[0]
-                    volume = min(region.get("demand", 5000000), best_route.get("capacity_per_day", 5000000))
-                    actions.append({
-                        "action_type": "ship_fuel",
-                        "parameters": {
-                            "from": best_route.get("from_region", ""), "to": r_id,
-                            "route": best_route.get("route_id", ""), "volume": int(volume)
-                        }
-                    })
-        
-        if not actions:
-            return [{"action_type": "hold", "parameters": {}}]
-        return actions
-    except Exception:
-        return [{"action_type": "hold", "parameters": {}}]
-
 def llm_agent_action(obs):
     """Uses LLM to select actions dynamically. Falls back to baseline on failure."""
     state_desc = f"""
@@ -89,8 +57,8 @@ def llm_agent_action(obs):
     except Exception:
         pass
     
-    # Fallback to deterministic math if LLM hallucinates to prevent grader crashes
-    return rule_based_action(obs)
+    # Strict LLM dynamic mode: If LLM fails, we hold position. No mathematical fallback allowed.
+    return [{"action_type": "hold", "parameters": {}}]
 
 def run_episode(task_id="easy_refinery_maintenance"):
     # 1. Print Standard START string strictly for Meta RegEx parser
