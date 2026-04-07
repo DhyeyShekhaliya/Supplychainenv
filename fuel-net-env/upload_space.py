@@ -6,8 +6,11 @@ api = HfApi()
 
 REPO_ID = "Dhyeyyy18/Fuel-Net-Env-Final"
 
-print(f"Creating Space {REPO_ID} if it doesn't exist...")
-api.create_repo(repo_id=REPO_ID, repo_type="space", space_sdk="docker", exist_ok=True)
+if api.repo_exists(repo_id=REPO_ID, repo_type="space"):
+    print(f"Space {REPO_ID} already exists! Skipping creation and directly uploading...")
+else:
+    print(f"Creating Space {REPO_ID}...")
+    api.create_repo(repo_id=REPO_ID, repo_type="space", space_sdk="docker", exist_ok=True)
 
 print("Uploading files...")
 api.upload_folder(
