@@ -95,6 +95,24 @@ def run_step_advanced():
     obs_d = env._build_observation().model_dump()
     action_dict = llm_agent_action(obs_d)
 
+    # Normalize LLM output: wrap flat dicts into FuelAction format
+    def normalize_action(a):
+        if "action_type" in a and "parameters" in a:
+            return a  # Already correct format
+        # LLM output flat format like {"route_id": "x", "volume": 5000000}
+        if "route_id" in a or "from" in a or "to" in a:
+            params = {}
+            for k in ["from", "to", "route", "route_id", "volume"]:
+                if k in a:
+                    params["route" if k == "route_id" else k] = a[k]
+            return {"action_type": "ship_fuel", "parameters": params}
+        return {"action_type": "hold", "parameters": {}}
+    
+    if isinstance(action_dict, list):
+        action_dict = [normalize_action(a) for a in action_dict]
+    elif isinstance(action_dict, dict):
+        action_dict = [normalize_action(action_dict)]
+
     try:
         total_days = env.task["episode_length"]
         reasoning_prompt = [
