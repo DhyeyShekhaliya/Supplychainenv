@@ -52,8 +52,11 @@ def llm_agent_action(obs):
         ], max_retries=1)
         
         if raw:
-            clean = raw.strip().replace("```json", "").replace("```", "")
-            return json.loads(clean)
+            import re
+            clean_str = raw.strip().replace('\n', '')
+            match = re.search(r'\[.*?\]', clean_str)
+            if match:
+                return json.loads(match.group(0))
     except Exception:
         pass
     
