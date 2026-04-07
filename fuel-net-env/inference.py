@@ -138,5 +138,14 @@ def run_episode(task_id="easy_refinery_maintenance"):
     print(f"[END] success={str(success).lower()} steps={step_count} rewards={rewards_str}")
 
 if __name__ == "__main__":
-    # Baseline defaults to a deterministic problem
-    run_episode("medium_multi_crisis")
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--task", type=str, default="all")
+    args = parser.parse_args()
+    
+    if args.task == "all":
+        tasks = ["easy_refinery_maintenance", "medium_multi_crisis", "hard_hormuz_crisis"]
+        for t in tasks:
+            run_episode(t)
+    else:
+        run_episode(args.task)
