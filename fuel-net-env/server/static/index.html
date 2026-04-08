@@ -460,13 +460,16 @@
         els.bar_budget.style.width = `${Math.max(0, (remaining/t_budget)*100)}%`;
         
         cumReward += reward;
-        els.cum.innerText = cumReward.toFixed(2);
+        // Normalize cumulative reward to 0-1 range
+        let normCum = Math.min(Math.max(cumReward / (totalDays * 10), 0.001), 0.999);
+        els.cum.innerText = normCum.toFixed(4);
         
         if(currentStep > 0) {
             const div = document.createElement('div');
             div.className = 'history-item';
             const sign = reward >= 0 ? '+' : '';
-            div.innerHTML = `<span>${currentStep}. execute_routing</span><span class="val">${sign}${reward.toFixed(2)}</span>`;
+            let normR = Math.min(Math.max(reward / 10, -0.999), 0.999);
+            div.innerHTML = `<span>${currentStep}. execute_routing</span><span class="val">${sign}${normR.toFixed(2)}</span>`;
             els.hist.prepend(div);
         }
         
@@ -564,7 +567,7 @@
                     
                     const g = await fetch('/grader_ui', {method: 'POST'});
                     const gs = await g.json();
-                    addLog(`<div class="log-line" style="color:var(--accent-yellow); font-size: 16px; margin-top: 10px">🏆 FINAL SCORE: ${(gs.score*100).toFixed(2)}/100</div>`, gs);
+                    addLog(`<div class="log-line" style="color:var(--accent-yellow); font-size: 16px; margin-top: 10px">🏆 FINAL SCORE: ${Math.min(Math.max(gs.score, 0.001), 0.999).toFixed(4)}</div>`, gs);
                     
                     setStatus("Complete", "var(--text-muted)");
                     break;
@@ -586,7 +589,9 @@
                 });
                 
                 const sign = data.reward >= 0 ? '+' : '';
-                logStr += `<div class="log-line">reward: <span class="log-reward">${sign}${data.reward.toFixed(2)}</span> (cumulative: ${cumReward.toFixed(2)})</div>`;
+                let normStepR = Math.min(Math.max(data.reward / 10, -0.999), 0.999);
+                let normCumR = Math.min(Math.max(cumReward / (totalDays * 10), 0.001), 0.999);
+                logStr += `<div class="log-line">reward: <span class="log-reward">${sign}${normStepR.toFixed(2)}</span> (cumulative: ${normCumR.toFixed(4)})</div>`;
                 
                 addLog(logStr, data);
                 

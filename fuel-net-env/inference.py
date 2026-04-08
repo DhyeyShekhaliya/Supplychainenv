@@ -134,7 +134,7 @@ def run_episode(task_id="easy_refinery_maintenance"):
     rewards_list = []
     step_count = 0
     success = False
-    score = 0.0
+    score = 0.001  # Never exactly 0.0 — hackathon rejects it
 
     # 1. Print [START] — always first
     print(f"[START] task={task_id} env=fuel_net_env model={MODEL_NAME}", flush=True)
@@ -188,6 +188,8 @@ def run_episode(task_id="easy_refinery_maintenance"):
 
     finally:
         # 3. [END] — ALWAYS emitted, even on exception
+        # Final safety clamp: score must be strictly (0, 1) exclusive
+        score = min(max(score, 0.001), 0.999)
         rewards_str = ",".join(f"{r:.2f}" for r in rewards_list)
         print(f"[END] success={str(success).lower()} steps={step_count} score={score:.3f} rewards={rewards_str}", flush=True)
 

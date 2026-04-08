@@ -199,7 +199,7 @@ def run_grader_ui():
         consumer_count=len([r for r in env.regions.values() if getattr(r.region_type, "value", r.region_type) == "consumer"]),
         total_days=env.task["episode_length"]
     )
-    return {"score": score}
+    return {"score": min(max(score, 0.001), 0.999)}
 
 def main():
     import uvicorn
