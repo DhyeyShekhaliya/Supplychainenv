@@ -131,49 +131,65 @@ JSON array:"""
     return _smart_actions(obs)
 
 def run_episode(task_id="easy_refinery_maintenance"):
-    # 1. Print Standard START string strictly for Meta RegEx parser
-    print(f"[START] task={task_id} env=fuel_net_env model={MODEL_NAME}")
+    rewards_list = []
+    step_count = 0
+    success = False
+    score = 0.0
+
+    # 1. Print [START] — always first
+    print(f"[START] task={task_id} env=fuel_net_env model={MODEL_NAME}", flush=True)
     
     try:
         resp = requests.post(f"{ENV_BASE_URL}/reset", params={"task_id": task_id})
         obs = resp.json()
-    except Exception as e:
-        print("[END] success=false steps=0 rewards=")
-        return
 
-    done = False
-    rewards_list = []
-    step_count = 0
-    success = True
+        done = False
 
-    while not done:
-        step_count += 1
-        
-        action_dict = llm_agent_action(obs)
-        action_str = json.dumps(action_dict).replace(' ', '')
+        while not done:
+            step_count += 1
+            
+            action_dict = llm_agent_action(obs)
+            action_str = json.dumps(action_dict).replace(' ', '')
 
+            try:
+                resp = requests.post(f"{ENV_BASE_URL}/step", json=action_dict)
+                step_data = resp.json()
+                
+                reward = float(step_data.get("reward", 0.0))
+                obs = step_data.get("observation", obs)
+                done = step_data.get("done", True)
+                error = step_data.get("error", None)
+                
+                rewards_list.append(reward)
+                
+                error_val = str(error).replace(' ', '_') if error else "null"
+                print(f"[STEP] step={step_count} action={action_str} reward={reward:.2f} done={str(done).lower()} error={error_val}", flush=True)
+                
+            except Exception as e:
+                err_str = str(e).replace(' ', '_')
+                print(f"[STEP] step={step_count} action={action_str} reward=0.00 done=true error={err_str}", flush=True)
+                break
+
+        # Calculate score via grader
         try:
-            resp = requests.post(f"{ENV_BASE_URL}/step", json=action_dict)
-            step_data = resp.json()
-            
-            reward = float(step_data.get("reward", 0.0))
-            obs = step_data.get("observation", obs)
-            done = step_data.get("done", True)
-            
-            rewards_list.append(reward)
-            
-            # 2. Print EXACT structured output mandated by OpenEnv Spec
-            print(f"[STEP] step={step_count} action={action_str} reward={reward:.2f} done={str(done).lower()} error=null")
-            
-        except Exception as e:
-            err_str = str(e).replace(' ', '_')
-            print(f"[STEP] step={step_count} action={action_str} reward=0.00 done=true error={err_str}")
-            success = False
-            break
+            resp = requests.post(f"{ENV_BASE_URL}/grader_ui")
+            grader_data = resp.json()
+            score = float(grader_data.get("score", 0.0))
+            # Clamp to strict (0, 1) exclusive
+            score = min(max(score, 0.001), 0.999)
+        except Exception:
+            score = 0.001
 
-    rewards_str = ",".join([f"{r:.2f}" for r in rewards_list])
-    # 3. Final validation hook
-    print(f"[END] success={str(success).lower()} steps={step_count} rewards={rewards_str}")
+        success = score > 0.1
+
+    except Exception as e:
+        import sys
+        print(f"[DEBUG] Episode error: {e}", file=sys.stderr, flush=True)
+
+    finally:
+        # 3. [END] — ALWAYS emitted, even on exception
+        rewards_str = ",".join(f"{r:.2f}" for r in rewards_list)
+        print(f"[END] success={str(success).lower()} steps={step_count} score={score:.3f} rewards={rewards_str}", flush=True)
 
 if __name__ == "__main__":
     import argparse
