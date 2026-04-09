@@ -6,16 +6,16 @@ from openai import OpenAI
 # ─── MANDATORY HACKATHON CONFIGURATION ───────────────────────────────────────
 API_BASE_URL = os.getenv("API_BASE_URL", "https://integrate.api.nvidia.com/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "meta/llama-3.1-8b-instruct")
-HF_TOKEN = os.getenv("HF_TOKEN", os.getenv("NVIDIA_API_KEY", "dummy"))
+HF_TOKEN = os.getenv("HF_TOKEN") or os.getenv("NVIDIA_API_KEY")
 
-# Initialize OpenAI client referencing the strict standard
-try:
-    client = OpenAI(
-        base_url=API_BASE_URL,
-        api_key=HF_TOKEN
-    )
-except Exception:
-    client = None
+if not HF_TOKEN:
+    raise RuntimeError("HF_TOKEN or NVIDIA_API_KEY environment variable is required")
+
+# Initialize OpenAI client
+client = OpenAI(
+    base_url=API_BASE_URL,
+    api_key=HF_TOKEN
+)
 
 
 ENV_BASE_URL = "http://localhost:7860"
@@ -188,10 +188,8 @@ def run_episode(task_id="easy_refinery_maintenance"):
 
     finally:
         # 3. [END] — ALWAYS emitted, even on exception
-        # Final safety clamp: score must be strictly (0, 1) exclusive
-        score = min(max(score, 0.001), 0.999)
         rewards_str = ",".join(f"{r:.2f}" for r in rewards_list)
-        print(f"[END] success={str(success).lower()} steps={step_count} score={score:.3f} rewards={rewards_str}", flush=True)
+        print(f"[END] success={str(success).lower()} steps={step_count} rewards={rewards_str}", flush=True)
 
 if __name__ == "__main__":
     import argparse
