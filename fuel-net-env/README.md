@@ -1,11 +1,5 @@
 ---
 title: Fuel Net Env
-emoji: 🛢️
-colorFrom: red
-colorTo: yellow
-sdk: docker
-pinned: false
----
 
 # FuelNetEnv — World Fuel Distribution Network Manager
 
@@ -13,6 +7,8 @@ pinned: false
 **Team:** Dhokla Deep Learners  
 **Hackathon:** Meta PyTorch OpenEnv Hackathon x SST  
 FuelNetEnv is an OpenEnv-compliant reinforcement learning and LLM agent environment simulating macro global fuel distribution amidst **real-world geopolitical crises**.
+
+HF Space: https://huggingface.co/spaces/Dhyeyyy18/Fuel-Net-Env-Final
 
 ### The Real-World Context (February-March 2026)
 This environment is grounded in the reality of the ongoing **2026 Strait of Hormuz Crisis**. Currently, over 20 million barrels of day (~20% of global flow) are at risk, leading to skyrocketing Brent crude prices and rerouted supply chains. You act as the **Global Fuel Distribution Crisis Manager** for a multi-national consortium.
@@ -72,8 +68,9 @@ python inference.py --task hard
 
 ### Official Baseline Benchmarks 
 Using the hybrid rule-based and LLM intelligence framework embedded in the baseline agent:
-- **Easy Task:** `75.80 / 100`
-- **Hard Task:** `71.37 / 100`
+- **Easy Task:** ` 0.7586 / 1`
+- **Medium Task:** ` 0.7480 / 1`
+- **Hard Task:** ` 0.7340 / 1`
 
 ## Grading System
 Scores are distributed from `0.0` to `1.0`, taking into account average percentage supply-fulfillment constraints, budgetary constraints (average transit premiums), and duration of markets under severe shortage.
