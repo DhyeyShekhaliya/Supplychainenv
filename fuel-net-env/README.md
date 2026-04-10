@@ -1,5 +1,11 @@
 ---
 title: Fuel Net Env
+emoji: 🛢️
+colorFrom: red
+colorTo: yellow
+sdk: docker
+pinned: false
+---
 
 # FuelNetEnv — World Fuel Distribution Network Manager
 
