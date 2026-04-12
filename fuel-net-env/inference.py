@@ -8,14 +8,13 @@ API_BASE_URL = os.getenv("API_BASE_URL", "https://integrate.api.nvidia.com/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "meta/llama-3.1-8b-instruct")
 HF_TOKEN = os.getenv("HF_TOKEN")
 
-if not HF_TOKEN:
-    raise RuntimeError("HF_TOKEN is missing")
-
 # Initialize OpenAI client 
-client = OpenAI(
-    base_url=API_BASE_URL,
-    api_key=HF_TOKEN
-)
+client = None
+if HF_TOKEN:
+    client = OpenAI(
+        base_url=API_BASE_URL,
+        api_key=HF_TOKEN
+    )
 
 ENV_BASE_URL = "http://localhost:7860"
 
@@ -156,6 +155,12 @@ def run_episode(task_id="easy_refinery_maintenance"):
     # 1. Print [START] — always first
     print(f"[START] task={task_id} env=fuel_net_env model={MODEL_NAME}", flush=True)
     
+    if not HF_TOKEN:
+        print("[DEBUG] Episode error: HF_TOKEN is missing", file=sys.stderr, flush=True)
+        # We must output END even if token is missing
+        print(f"[END] success=false steps=0 rewards=", flush=True)
+        raise RuntimeError("HF_TOKEN is missing")
+        
     try:
         resp = requests.post(f"{ENV_BASE_URL}/reset", params={"task_id": task_id})
         obs = resp.json()

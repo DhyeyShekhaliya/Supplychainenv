@@ -108,5 +108,9 @@ def grade_episode(task_id, daily_fulfillment_history, total_spent,
     scaled_score = final_score * multiplier
 
     # Clamp strictly to (0, 1) exclusive
-    safe_score = float(min(max(scaled_score, 0.000001), 0.999999))
-    return round(safe_score, 5)
+    raw_score = round(scaled_score, 5)
+    if raw_score <= 0.0:
+        return 0.00001
+    if raw_score >= 1.0:
+        return 0.99999
+    return raw_score
