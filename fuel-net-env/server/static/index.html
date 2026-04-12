@@ -559,10 +559,15 @@
         setStatus("Computing Routes...", "var(--accent-cyan)");
 
         while(isRunning) {
-            currentStep++;
             try {
                 const res = await fetch('/run_step_advanced', {method: 'POST'});
                 const data = await res.json();
+                
+                if (data.observation && data.observation.current_day !== undefined) {
+                    currentStep = data.observation.current_day;
+                } else {
+                    currentStep++;
+                }
                 
                 if(data.done || data.error) {
                     // Update UI with the final frame data before halting

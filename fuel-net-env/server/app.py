@@ -175,6 +175,44 @@ def run_step_advanced():
 
     try:
         obs, reward, done, info = env.step(parsed_actions)
+        error = info.get("error") if info else None
+        
+        # Idea 2 Rollback Loop inside the UI endpoint
+        retry_count = 0
+        while error and retry_count < 3:
+            print(f"[UI STEP] Error encountered: {error}, retrying...", flush=True)
+            action_dict = llm_agent_action(obs_d, previous_error=error)
+            
+            # Re-normalize
+            normalized = []
+            if isinstance(action_dict, list):
+                for a in action_dict:
+                    result = normalize_action(a)
+                    if isinstance(result, list):
+                        normalized.extend(result)
+                    else:
+                        normalized.append(result)
+            elif isinstance(action_dict, dict):
+                result = normalize_action(action_dict)
+                normalized = result if isinstance(result, list) else [result]
+            action_dict = normalized if normalized else [{"action_type": "hold", "parameters": {}}]
+
+            # Re-generate reasoning
+            if last_reasoning:
+                if isinstance(action_dict, list) and len(action_dict) > 0:
+                    action_dict[0]["reasoning"] = last_reasoning
+                elif isinstance(action_dict, dict):
+                    action_dict["reasoning"] = last_reasoning
+
+            if isinstance(action_dict, list):
+                parsed_actions = [FuelAction(**a) for a in action_dict]
+            else:
+                parsed_actions = FuelAction(**action_dict)
+
+            obs, reward, done, info = env.step(parsed_actions)
+            error = info.get("error") if info else None
+            retry_count += 1
+            
     except Exception as step_err:
         import sys
         print(f"[ENV DEBUG] env.step failed: {step_err}", file=sys.stderr)
