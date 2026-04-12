@@ -29,7 +29,11 @@ async def global_exception_handler(request, exc):
 def index():
     html_path = os.path.join(static_dir, "index.html")
     if os.path.exists(html_path):
-        return FileResponse(html_path)
+        response = FileResponse(html_path)
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
     return {"message": "Frontend building..."}
 
 @app.post("/reset")
