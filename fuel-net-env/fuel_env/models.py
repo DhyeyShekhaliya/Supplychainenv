@@ -58,6 +58,7 @@ class FuelObservation(BaseModel):
 class FuelAction(BaseModel):
     action_type: str
     parameters: dict
+    reasoning: Optional[str] = ""
 
 class FuelReward(BaseModel):
     total: float

@@ -6,6 +6,7 @@ TASK_VERY_EASY = {
     "consumers": ["india", "china", "japan_korea", "europe"],
     "disruption_count": 0,
     "difficulty": "very_easy",
+    "ground_truth_explanation": "Establish a structural equilibrium targeting precise demand satisfaction across all four consumer regions. Since there are no disruptions, the optimal policy leverages the most cost-effective and high-capacity maritime and pipeline routes to strictly fulfill baseline structural deficits without drawing down strategic reserves.",
 }
 
 TASK_EASY = {
@@ -18,6 +19,7 @@ TASK_EASY = {
     "consumers": ["india", "china", "japan_korea", "europe"],
     "disruption_count": 1,
     "difficulty": "easy",
+    "ground_truth_explanation": "Promptly recognize the 30% supply drop in the Persian Gulf and re-balance global outflows. Prioritize continuous fulfillment to Asian markets by offsetting the Gulf deficit with scaled-up shipments from US Shale or West Africa before local reserves are depleted.",
 }
 
 TASK_MEDIUM = {
@@ -31,6 +33,7 @@ TASK_MEDIUM = {
     "consumers": ["india", "china", "japan_korea", "europe"],
     "disruption_count": 3,
     "difficulty": "medium",
+    "ground_truth_explanation": "A dynamic triage strategy is required. Proactively ship to Europe via US/West Africa before the Russian pipeline sanctions hit. Divert Persian Gulf shipments targeting Europe toward India to cover the massive 60% heatwave demand spike. Accept higher transit costs to bypass the blocked Suez Canal.",
 }
 
 TASK_HARD = {
@@ -46,6 +49,7 @@ TASK_HARD = {
     "consumers": ["india", "china", "japan_korea", "europe"],
     "disruption_count": 5,
     "difficulty": "hard",
+    "ground_truth_explanation": "Radical budget preservation and strategic reserves pacing. With Hormuz closed and 20M+ bbl/day lost, global fulfillment is impossible. The optimal strategy utilizes US Shale and West African supply exclusively through non-chokepoint routes (like the Cape of Good Hope). Ration existing supplies, prioritizing cost-efficiency over 100% fulfillment.",
 }
 
 TASK_EXTREME = {
@@ -57,6 +61,7 @@ TASK_EXTREME = {
     "consumers": ["india", "china", "japan_korea", "europe"],
     "disruption_count": 7,
     "difficulty": "extreme",
+    "ground_truth_explanation": "Complete structural supply chain breakdown. Must immediately authorize maximum reserve withdrawals for all critical zones while initiating cross-hemisphere long-haul routing (e.g. West Africa to Japan/Korea) completely ignoring baseline transit costs. The primary goal is preventing zero-supply events via aggressive emergency spot routing.",
 }
 
 TASKS = {

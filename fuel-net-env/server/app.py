@@ -66,7 +66,8 @@ def run_grader():
         total_budget=env.task["total_budget"],
         shortage_days=env.shortage_days,
         consumer_count=len([r for r in env.regions.values() if r.region_type.value == "consumer"]),
-        total_days=env.task["episode_length"]
+        total_days=env.task["episode_length"],
+        reasoning_history=env.reasoning_history
     )
     return {"score": score}
 
@@ -197,7 +198,8 @@ def run_grader_ui():
         total_budget=env.task["total_budget"],
         shortage_days=env.shortage_days,
         consumer_count=len([r for r in env.regions.values() if getattr(r.region_type, "value", r.region_type) == "consumer"]),
-        total_days=env.task["episode_length"]
+        total_days=env.task["episode_length"],
+        reasoning_history=env.reasoning_history
     )
     return {"score": min(max(score, 0.001), 0.999)}
 

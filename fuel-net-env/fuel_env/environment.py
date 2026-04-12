@@ -21,6 +21,7 @@ class FuelEnvironment:
         self.daily_fulfillment = []
         self.total_spent = 0.0
         self.shortage_days = 0
+        self.reasoning_history = []
         self.done = False
         self.global_price = 75.0
         self.new_alerts = []
@@ -36,8 +37,12 @@ class FuelEnvironment:
         # Execute action(s)
         if isinstance(action, list):
             for a in action:
+                if getattr(a, "reasoning", ""):
+                    self.reasoning_history.append(f"Day {self.current_day}: {a.reasoning}")
                 cost += self._execute_action(a)
         else:
+            if getattr(action, "reasoning", ""):
+                self.reasoning_history.append(f"Day {self.current_day}: {action.reasoning}")
             cost = self._execute_action(action)
             
         self.total_spent += cost

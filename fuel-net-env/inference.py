@@ -61,6 +61,7 @@ def _smart_actions(obs):
                 if vol > 0:
                     actions.append({
                         "action_type": "ship_fuel",
+                        "reasoning": f"Smart fallback: fulfilling {r_id} deficit",
                         "parameters": {
                             "from": best.get("from_region", ""),
                             "to": r_id,
@@ -99,7 +100,11 @@ Rules:
 - Ship fuel PROACTIVELY every single day to cover the 'Daily Deficits' for consumer regions.
 - Do NOT wait for reserves to drop. Transit takes days, you must act now.
 - Always use exact route_id from Available Routes.
-- volume = integer (barrels/day), max is route capacity"""
+- volume = integer (barrels/day), max is route capacity
+- MUST include a "reasoning" key inside each action explaining your strategic logic!
+
+Example:
+[{"action_type": "ship_fuel", "reasoning": "Europe is at -2.5M deficit. Deploying from US via sea.", "parameters": {"from": "us_shale", "to": "europe", "route": "us_europe_sea", "volume": 2500000}}]"""
 
     user_prompt = f"""Day {obs.get('current_day', 0)}/{obs.get('total_days', 30)} | Budget: ${obs.get('remaining_budget', 0):,.0f}
 Task: {obs.get('task_description', '')}
