@@ -199,11 +199,9 @@
     <aside class="sidebar-left">
         <div class="section">
             <div class="section-title">Scenario</div>
-            <div class="scenario-item" id="tag_veasy" style="cursor:pointer" onclick="setTask('very_easy_startup')"><div style="display:flex;align-items:center"><div class="dot"></div>Very Easy</div><span class="badge badge-veasy">VEASY</span></div>
-            <div class="scenario-item" id="tag_easy" style="cursor:pointer" onclick="setTask('easy_refinery_maintenance')"><div style="display:flex;align-items:center"><div class="dot"></div>Easy Refinery</div><span class="badge badge-easy">EASY</span></div>
-            <div class="scenario-item" id="tag_medium" style="cursor:pointer" onclick="setTask('medium_multi_crisis')"><div style="display:flex;align-items:center"><div class="dot"></div>Multi Crisis</div><span class="badge badge-med">MED</span></div>
-            <div class="scenario-item active" id="tag_hard" style="cursor:pointer" onclick="setTask('hard_hormuz_crisis')"><div style="display:flex;align-items:center"><div class="dot"></div>Hormuz Blockade</div><span class="badge badge-hard">HARD</span></div>
-            <div class="scenario-item" id="tag_extreme" style="cursor:pointer" onclick="setTask('extreme_global_crisis')"><div style="display:flex;align-items:center"><div class="dot"></div>Extreme Crisis</div><span class="badge badge-extreme">EXTRM</span></div>
+            <div id="scenarioList">
+                <div style="color:var(--text-muted); font-size:12px;">Loading scenarios...</div>
+            </div>
         </div>
         
         <div class="section">
@@ -354,6 +352,7 @@
     let currentStep = 0;
     let cumReward = 0.0;
     let totalDays = 30;
+    let availableTasks = {};
     
     // Inject D3 Background Map Layer
     d3.json("https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson").then(data => {
@@ -393,6 +392,82 @@
     let agentLogs = [];
     let currentTab = 'agent';
 
+    const taskBadgeMap = {
+        very_easy: ['badge-veasy', 'VEASY'],
+        easy: ['badge-easy', 'EASY'],
+        medium: ['badge-med', 'MED'],
+        hard: ['badge-hard', 'HARD'],
+        extreme: ['badge-extreme', 'EXTRM']
+    };
+
+    function toTitleCase(s) {
+        return String(s || '')
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    function taskDisplayName(task) {
+        const fallbackFromId = toTitleCase(task.task_id || 'Scenario');
+        if (!task.description) return fallbackFromId;
+        const firstChunk = String(task.description).split(/[.!?]/)[0] || fallbackFromId;
+        return firstChunk.trim().slice(0, 32) || fallbackFromId;
+    }
+
+    function renderScenarioList() {
+        const container = document.getElementById('scenarioList');
+        const ids = Object.keys(availableTasks);
+        if (ids.length === 0) {
+            container.innerHTML = `<div style="color:var(--text-muted); font-size:12px;">No scenarios found.</div>`;
+            return;
+        }
+
+        const sorted = ids.sort((a, b) => {
+            const da = availableTasks[a]?.difficulty || '';
+            const db = availableTasks[b]?.difficulty || '';
+            const order = { very_easy: 0, easy: 1, medium: 2, hard: 3, extreme: 4 };
+            return (order[da] ?? 99) - (order[db] ?? 99);
+        });
+
+        container.innerHTML = sorted.map(id => {
+            const task = availableTasks[id] || {};
+            const difficulty = task.difficulty || 'easy';
+            const [badgeClass, badgeText] = taskBadgeMap[difficulty] || ['badge-easy', String(difficulty).toUpperCase()];
+            const activeClass = id === currentTask ? ' active' : '';
+            return `
+                <div class="scenario-item${activeClass}" style="cursor:pointer" onclick="setTask('${id}')">
+                    <div style="display:flex;align-items:center"><div class="dot"></div>${taskDisplayName(task)}</div>
+                    <span class="badge ${badgeClass}">${badgeText}</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function loadTasks() {
+        try {
+            const res = await fetch('/tasks');
+            if (!res.ok) throw new Error(`Failed to load tasks (${res.status})`);
+            const tasks = await res.json();
+            availableTasks = tasks || {};
+
+            if (!availableTasks[currentTask]) {
+                const first = Object.keys(availableTasks)[0];
+                if (first) currentTask = first;
+            }
+            renderScenarioList();
+        } catch (e) {
+            // Keep UI usable with static fallback if task API is unavailable.
+            availableTasks = {
+                very_easy_startup: { task_id: 'very_easy_startup', difficulty: 'very_easy', description: 'Very Easy Startup' },
+                easy_refinery_maintenance: { task_id: 'easy_refinery_maintenance', difficulty: 'easy', description: 'Easy Refinery Maintenance' },
+                medium_multi_crisis: { task_id: 'medium_multi_crisis', difficulty: 'medium', description: 'Medium Multi Crisis' },
+                hard_hormuz_crisis: { task_id: 'hard_hormuz_crisis', difficulty: 'hard', description: 'Hard Hormuz Crisis' },
+                extreme_global_crisis: { task_id: 'extreme_global_crisis', difficulty: 'extreme', description: 'Extreme Global Crisis' }
+            };
+            renderScenarioList();
+            addLog(`<div style="color:var(--accent-red)">Could not fetch scenarios: ${e.message}</div>`, { error: e.message });
+        }
+    }
+
     function addLog(agentHtml, jsonObj) {
         agentLogs.push(agentHtml);
         rawJsonBlocks.push(`<pre>${JSON.stringify(jsonObj, null, 2)}</pre>`);
@@ -419,6 +494,7 @@
     function setTask(taskId) {
         if(isRunning) return;
         currentTask = taskId;
+        renderScenarioList();
         resetEnv();
     }
 
@@ -429,12 +505,7 @@
         agentLogs = []; rawJsonBlocks = []; cumReward = 0; currentStep = 0;
         els.hist.innerHTML = ''; els.disc.innerHTML = ''; els.cum.innerText = "0.00";
         
-        document.querySelectorAll('.scenario-item').forEach(el => el.classList.remove('active'));
-        if(task === 'very_easy_startup') document.getElementById('tag_veasy').classList.add('active');
-        else if(task === 'easy_refinery_maintenance') document.getElementById('tag_easy').classList.add('active');
-        else if(task === 'medium_multi_crisis') document.getElementById('tag_medium').classList.add('active');
-        else if(task === 'hard_hormuz_crisis') document.getElementById('tag_hard').classList.add('active');
-        else if(task === 'extreme_global_crisis') document.getElementById('tag_extreme').classList.add('active');
+        renderScenarioList();
 
         setStatus("Initializing...", "var(--accent-yellow)");
         
@@ -452,12 +523,14 @@
     }
 
     function updateUI(obs, reward, actions) {
-        const day = obs.current_day || 0;
+        if(!obs) return;
+        const day = Math.min(obs.current_day || 0, totalDays);
         els.st_time.innerText = `${day} / ${totalDays} days`;
         els.bar_time.style.width = `${(day/totalDays)*100}%`;
         
-        els.st_steps.innerText = `${currentStep} / ${totalDays}`;
-        els.bar_steps.style.width = `${(currentStep/totalDays)*100}%`;
+        const displayStep = Math.min(currentStep, totalDays);
+        els.st_steps.innerText = `${displayStep} / ${totalDays}`;
+        els.bar_steps.style.width = `${(displayStep/totalDays)*100}%`;
         
         const spent = obs.spent || 0;
         const t_budget = obs.total_budget || 30000000000;
@@ -564,14 +637,16 @@
                 const data = await res.json();
                 
                 if (data.observation && data.observation.current_day !== undefined) {
-                    currentStep = data.observation.current_day;
+                    currentStep = Math.min(data.observation.current_day, totalDays);
                 } else {
-                    currentStep++;
+                    currentStep = Math.min(currentStep + 1, totalDays);
                 }
                 
                 if(data.done || data.error) {
                     // Update UI with the final frame data before halting
-                    updateUI(data.observation, data.reward, data.action);
+                    if (data.observation) {
+                        updateUI(data.observation, data.reward || 0, data.action || []);
+                    }
                     
                     isRunning = false;
                     addLog(`<div class="log-line" style="color:var(--accent-green)">[Simulation Complete] Episode finished.</div>`, data);
@@ -619,7 +694,10 @@
     }
 
     // Init
-    resetEnv();
+    (async () => {
+        await loadTasks();
+        await resetEnv();
+    })();
 </script>
 
 </body>
