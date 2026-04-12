@@ -94,7 +94,19 @@ def grade_episode(task_id, daily_fulfillment_history, total_spent,
             
     # Blend: 70% Math, 30% Strategy
     final_score = (deterministic_score * 0.70) + (reasoning_score * 0.30)
+    
+    # Idea 3: Progressive Difficulty Scales (Incentivizes taking on hard tasks)
+    difficulty = TASKS.get(task_id, {}).get("difficulty", "medium")
+    multiplier_map = {
+        "very_easy": 0.2,
+        "easy": 0.4,
+        "medium": 0.6,
+        "hard": 0.8,
+        "extreme": 1.0
+    }
+    multiplier = multiplier_map.get(difficulty, 1.0)
+    scaled_score = final_score * multiplier
 
     # Clamp strictly to (0, 1) exclusive
-    safe_score = float(min(max(final_score, 0.000001), 0.999999))
+    safe_score = float(min(max(scaled_score, 0.000001), 0.999999))
     return round(safe_score, 5)

@@ -44,9 +44,11 @@ The environment runs on standard REST API endpoints over FastAPI matching the Op
 - `/baseline`
 
 ## Tasks (Difficulty Levels)
-1. **Easy** (`easy_refinery_maintenance`): 15-day timeline focused on a localized 30% pipeline supply cut from the Persian Gulf.
-2. **Medium** (`medium_multi_crisis`): 25-day cascade timeline. Houthis attack the Red Sea, forcing Cape of Good Hope reroutes while summer heatwaves hit Indian diesel supplies.
-3. **Hard** (`hard_hormuz_crisis`): 30-day timeline. Simulates the actual **February 2026 Strait of Hormuz closure**. 20M bbl/day are suspended with localized attacks on bypass pipelines. Unsolvable perfectly; triage is required.
+1. **Very Easy** (`very_easy_startup`): Benchmark non-disrupted market equilibrium fulfillment.
+2. **Easy** (`easy_refinery_maintenance`): 15-day timeline focused on a localized 30% pipeline supply cut from the Persian Gulf.
+3. **Medium** (`medium_multi_crisis`): 25-day cascade timeline. Houthis attack the Red Sea, forcing Cape of Good Hope reroutes while summer heatwaves hit Indian diesel supplies.
+4. **Hard** (`hard_hormuz_crisis`): 30-day timeline. Simulates the actual **February 2026 Strait of Hormuz closure**. 20M bbl/day are suspended with localized attacks on bypass pipelines. Unsolvable perfectly; triage is required.
+5. **Extreme** (`extreme_global_crisis`): Complete breakdown. 7 simultaneous disruptions require 100% emergency long-haul routing ignoring transit limits.
 
 ## Quickstart (Locally)
 We've included a Dockerfile for HuggingFace Spaces/local deployment.
@@ -78,5 +80,14 @@ Using the hybrid rule-based and LLM intelligence framework embedded in the basel
 - **Medium Task:** ` 0.7480 / 1`
 - **Hard Task:** ` 0.7340 / 1`
 
+## Advanced Formatting & OpenEnv Alignment
+FuelNetEnv utilizes advanced validation and grading schemas drawn directly from top-tier OpenEnv architectures:
+1. **Three-Dimensional Evaluation**: The final grade blends mathematical deterministic scoring (70%) with a qualitative LLM Judge reasoning evaluation (30%). Agents must provide strategic reasoning for their action allocations to score maximally.
+2. **Iterative Validation Rollback**: Invalid physical routing actions immediately yield HTTP error feedback without advancing the simulation clock, allowing LLM agents up to 3 context-grounded retries to self-correct parsing or geographical mistakes.
+3. **Progressive Difficulty Scaling**: Final scores are natively bounded `(0, 1)`, and bounded further depending on task difficulty. Easy tasks limit the maximal reward, actively incentivizing agents to pursue the `extreme_global_crisis` task for maximal overall points.
+
 ## Grading System
-Scores are distributed from `0.0` to `1.0`, taking into account average percentage supply-fulfillment constraints, budgetary constraints (average transit premiums), and duration of markets under severe shortage.
+Scores are distributed dynamically taking into account:
+- **Supply Fulfillment Constraints**: Overall percentage met.
+- **Budgetary Constraints**: Average transit premiums vs default logic.
+- **Reasoning Structure**: Strategic capability mapped against curated ground-truths (LLM as a judge).

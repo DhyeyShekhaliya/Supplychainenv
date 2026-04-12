@@ -34,6 +34,26 @@ class FuelEnvironment:
         self.new_alerts = []
         cost = 0.0
         
+        # Validate action(s) for Rollback feedback
+        error_msg = None
+        action_list = action if isinstance(action, list) else [action]
+        for a in action_list:
+            if a.action_type == "ship_fuel":
+                r_id = a.parameters.get("route")
+                route = next((r for r in self.routes if r.route_id == r_id), None)
+                if not route:
+                    error_msg = f"Invalid route '{r_id}'."
+                    break
+                if not route.active:
+                    error_msg = f"Route '{r_id}' is disrupted/closed."
+                    break
+                
+        if error_msg:
+            obs = self._build_observation()
+            obs.message = f"Validation Error: {error_msg}"
+            # Idea 2 Rollback: Return error, do NOT advance day
+            return obs, 0.0, False, {"error": error_msg}
+            
         # Execute action(s)
         if isinstance(action, list):
             for a in action:

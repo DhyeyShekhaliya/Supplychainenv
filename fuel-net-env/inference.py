@@ -75,7 +75,7 @@ def _smart_actions(obs):
                     
     return actions if actions else [{"action_type": "hold", "parameters": {}}]
 
-def llm_agent_action(obs):
+def llm_agent_action(obs, previous_error=None):
     """Hybrid: tries LLM first, uses smart deterministic if LLM fails."""
     import sys
     # Build compact route table for LLM
@@ -112,9 +112,12 @@ Daily Deficits (Demand - Output): {deficit_str}
 Shortages: {obs.get('markets_in_shortage', [])}
 
 Routes:
-{routes_str}
+{routes_str}"""
 
-JSON array:"""
+    if previous_error:
+        user_prompt += f"\n\n🚨 EXTREMELY IMPORTANT: YOUR PREVIOUS ACTION FAILED WITH ERROR:\n{previous_error}\nYou MUST change your strategy and use a completely DIFFERENT route!"
+        
+    user_prompt += "\n\nJSON array:"
 
     try:
         raw = call_llm_with_retry([
@@ -168,11 +171,27 @@ def run_episode(task_id="easy_refinery_maintenance"):
             try:
                 resp = requests.post(f"{ENV_BASE_URL}/step", json=action_dict)
                 step_data = resp.json()
+                error = step_data.get("error", None)
                 
+                # Rollback Error Self-Correction Loop
+                retry_count = 0
+                while error and retry_count < 3:
+                    error_val = str(error).replace(' ', '_')
+                    print(f"[STEP] step={step_count} action={action_str} reward=0.00 done=false error={error_val}", flush=True)
+                    
+                    # Ask LLM again with error feedback
+                    action_dict = llm_agent_action(obs, previous_error=error)
+                    action_str = json.dumps(action_dict).replace(' ', '')
+                    
+                    step_count += 1
+                    resp = requests.post(f"{ENV_BASE_URL}/step", json=action_dict)
+                    step_data = resp.json()
+                    error = step_data.get("error", None)
+                    retry_count += 1
+
                 reward = float(step_data.get("reward", 0.0))
                 obs = step_data.get("observation", obs)
                 done = step_data.get("done", True)
-                error = step_data.get("error", None)
                 
                 rewards_list.append(reward)
                 
