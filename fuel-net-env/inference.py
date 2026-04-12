@@ -1,4 +1,5 @@
 import os
+import sys
 import requests
 import json
 from openai import OpenAI
@@ -19,7 +20,7 @@ if HF_TOKEN:
 ENV_BASE_URL = "http://localhost:7860"
 
 def call_llm_with_retry(messages, model=None, max_retries=3):
-    import time, sys
+    import time
     model = model or MODEL_NAME
     for attempt in range(max_retries):
         try:
@@ -76,7 +77,6 @@ def _smart_actions(obs):
 
 def llm_agent_action(obs, previous_error=None):
     """Hybrid: tries LLM first, uses smart deterministic if LLM fails."""
-    import sys
     # Build compact route table for LLM
     route_info = []
     for r in obs.get('routes', []):
@@ -221,13 +221,12 @@ def run_episode(task_id="easy_refinery_maintenance"):
         success = score > 0.1
 
     except Exception as e:
-        import sys
         print(f"[DEBUG] Episode error: {e}", file=sys.stderr, flush=True)
 
     finally:
         # 3. [END] — ALWAYS emitted, even on exception
         rewards_str = ",".join(f"{r:.2f}" for r in rewards_list)
-        print(f"[END] success={str(success).lower()} steps={step_count} rewards={rewards_str}", flush=True)
+        print(f"[END] success={str(success).lower()} steps={step_count} score={score:.4f} rewards={rewards_str}", flush=True)
 
 if __name__ == "__main__":
     import argparse
