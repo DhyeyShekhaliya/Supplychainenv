@@ -3,6 +3,11 @@ import sys
 import requests
 import json
 from openai import OpenAI
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 # ─── MANDATORY HACKATHON CONFIGURATION ───────────────────────────────────────
 API_BASE_URL = os.getenv("API_BASE_URL", "https://integrate.api.nvidia.com/v1")
@@ -158,7 +163,7 @@ def run_episode(task_id="easy_refinery_maintenance"):
     if not HF_TOKEN:
         print("[DEBUG] Episode error: HF_TOKEN is missing", file=sys.stderr, flush=True)
         # We must output END even if token is missing
-        print(f"[END] success=false steps=0 rewards=", flush=True)
+        print(f"[END] success=false steps=0 score=0.0000 rewards=", flush=True)
         raise RuntimeError("HF_TOKEN is missing")
         
     try:
