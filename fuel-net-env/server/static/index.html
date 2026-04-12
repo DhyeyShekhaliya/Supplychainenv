@@ -88,9 +88,11 @@
         .scenario-item.active { color: var(--accent-cyan); font-weight: 500; }
         
         .badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+        .badge-veasy { background: rgba(88, 166, 255, 0.15); color: #58a6ff; }
         .badge-easy { background: rgba(63, 185, 80, 0.15); color: var(--accent-green); }
         .badge-med { background: rgba(210, 153, 34, 0.15); color: var(--accent-yellow); }
         .badge-hard { background: rgba(255, 123, 114, 0.15); color: var(--accent-red); }
+        .badge-extreme { background: rgba(163, 113, 247, 0.15); color: #a371f7; box-shadow: 0 0 5px rgba(163, 113, 247, 0.3); }
 
         .stat-row { margin-bottom: 12px; }
         .stat-header { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 12px; }
@@ -197,9 +199,11 @@
     <aside class="sidebar-left">
         <div class="section">
             <div class="section-title">Scenario</div>
+            <div class="scenario-item" id="tag_veasy" style="cursor:pointer" onclick="setTask('very_easy_startup')"><div style="display:flex;align-items:center"><div class="dot"></div>Very Easy</div><span class="badge badge-veasy">VEASY</span></div>
             <div class="scenario-item" id="tag_easy" style="cursor:pointer" onclick="setTask('easy_refinery_maintenance')"><div style="display:flex;align-items:center"><div class="dot"></div>Easy Refinery</div><span class="badge badge-easy">EASY</span></div>
             <div class="scenario-item" id="tag_medium" style="cursor:pointer" onclick="setTask('medium_multi_crisis')"><div style="display:flex;align-items:center"><div class="dot"></div>Multi Crisis</div><span class="badge badge-med">MED</span></div>
             <div class="scenario-item active" id="tag_hard" style="cursor:pointer" onclick="setTask('hard_hormuz_crisis')"><div style="display:flex;align-items:center"><div class="dot"></div>Hormuz Blockade</div><span class="badge badge-hard">HARD</span></div>
+            <div class="scenario-item" id="tag_extreme" style="cursor:pointer" onclick="setTask('extreme_global_crisis')"><div style="display:flex;align-items:center"><div class="dot"></div>Extreme Crisis</div><span class="badge badge-extreme">EXTRM</span></div>
         </div>
         
         <div class="section">
@@ -426,9 +430,11 @@
         els.hist.innerHTML = ''; els.disc.innerHTML = ''; els.cum.innerText = "0.00";
         
         document.querySelectorAll('.scenario-item').forEach(el => el.classList.remove('active'));
-        if(task.includes('easy')) document.getElementById('tag_easy').classList.add('active');
-        if(task.includes('medium')) document.getElementById('tag_medium').classList.add('active');
-        if(task.includes('hard')) document.getElementById('tag_hard').classList.add('active');
+        if(task === 'very_easy_startup') document.getElementById('tag_veasy').classList.add('active');
+        else if(task === 'easy_refinery_maintenance') document.getElementById('tag_easy').classList.add('active');
+        else if(task === 'medium_multi_crisis') document.getElementById('tag_medium').classList.add('active');
+        else if(task === 'hard_hormuz_crisis') document.getElementById('tag_hard').classList.add('active');
+        else if(task === 'extreme_global_crisis') document.getElementById('tag_extreme').classList.add('active');
 
         setStatus("Initializing...", "var(--accent-yellow)");
         
