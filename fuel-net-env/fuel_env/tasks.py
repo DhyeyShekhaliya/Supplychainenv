@@ -1,3 +1,13 @@
+TASK_VERY_EASY = {
+    "task_id": "very_easy_startup",
+    "description": "Baseline startup scenario with no disruptions. Simply route fuel to meet normal demand.",
+    "episode_length": 10,
+    "total_budget": 3_000_000_000,
+    "consumers": ["india", "china", "japan_korea", "europe"],
+    "disruption_count": 0,
+    "difficulty": "very_easy",
+}
+
 TASK_EASY = {
     "task_id": "easy_refinery_maintenance",
     "description": "Saudi Ras Tanura refinery scheduled maintenance. Persian Gulf "
@@ -38,8 +48,21 @@ TASK_HARD = {
     "difficulty": "hard",
 }
 
+TASK_EXTREME = {
+    "task_id": "extreme_global_crisis",
+    "description": "A devastating global scenario. Suez is blocked, Strait of Malacca faces piracy, "
+                   "and US shale production drops. Route fuel creatively around the globe.",
+    "episode_length": 40,
+    "total_budget": 40_000_000_000,
+    "consumers": ["india", "china", "japan_korea", "europe"],
+    "disruption_count": 7,
+    "difficulty": "extreme",
+}
+
 TASKS = {
+    "very_easy_startup": TASK_VERY_EASY,
     "easy_refinery_maintenance": TASK_EASY,
     "medium_multi_crisis": TASK_MEDIUM,
     "hard_hormuz_crisis": TASK_HARD,
+    "extreme_global_crisis": TASK_EXTREME,
 }

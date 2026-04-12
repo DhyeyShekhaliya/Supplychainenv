@@ -6,17 +6,16 @@ from openai import OpenAI
 # ─── MANDATORY HACKATHON CONFIGURATION ───────────────────────────────────────
 API_BASE_URL = os.getenv("API_BASE_URL", "https://integrate.api.nvidia.com/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "meta/llama-3.1-8b-instruct")
-HF_TOKEN = os.getenv("HF_TOKEN") or os.getenv("NVIDIA_API_KEY")
+HF_TOKEN = os.getenv("HF_TOKEN")
 
 if not HF_TOKEN:
-    raise RuntimeError("HF_TOKEN or NVIDIA_API_KEY environment variable is required")
+    raise RuntimeError("HF_TOKEN is missing")
 
-# Initialize OpenAI client
+# Initialize OpenAI client 
 client = OpenAI(
     base_url=API_BASE_URL,
     api_key=HF_TOKEN
 )
-
 
 ENV_BASE_URL = "http://localhost:7860"
 
@@ -41,31 +40,38 @@ def call_llm_with_retry(messages, model=None, max_retries=3):
     return ""
 
 def _smart_actions(obs):
-    """Deterministic logic that actually ships fuel to shortage markets."""
+    """Proactive shipping: send fuel every day to cover the structural deficit before reserves dry up."""
     actions = []
     consumers = [r for r in obs.get("regions", []) if r.get("region_type") == "consumer"]
-    fulfillment = obs.get("demand_fulfillment", {})
-    routes = obs.get("routes", [])
+    routes = [r for r in obs.get("routes", []) if r.get("active", True)]
     
     for region in consumers:
         r_id = region["region_id"]
-        if fulfillment.get(r_id, 1.0) < 0.95:
+        demand = region.get("demand", 0)
+        output = region.get("current_output", 0)
+        shortfall = max(0, demand - output)
+        
+        if shortfall > 0:
             viable = sorted(
-                [r for r in routes if r.get("to_region") == r_id and r.get("active", True)],
+                [r for r in routes if r.get("to_region") == r_id],
                 key=lambda r: r.get("current_transit_days", 999)
             )
-            if viable:
-                best = viable[0]
-                vol = min(region.get("demand", 5000000), best.get("capacity_per_day", 5000000))
-                actions.append({
-                    "action_type": "ship_fuel",
-                    "parameters": {
-                        "from": best.get("from_region", ""),
-                        "to": r_id,
-                        "route": best.get("route_id", ""),
-                        "volume": int(vol)
-                    }
-                })
+            for best in viable:
+                vol = min(shortfall, best.get("capacity_per_day", 5000000))
+                if vol > 0:
+                    actions.append({
+                        "action_type": "ship_fuel",
+                        "parameters": {
+                            "from": best.get("from_region", ""),
+                            "to": r_id,
+                            "route": best.get("route_id", ""),
+                            "volume": int(vol)
+                        }
+                    })
+                    shortfall -= vol
+                if shortfall <= 0:
+                    break
+                    
     return actions if actions else [{"action_type": "hold", "parameters": {}}]
 
 def llm_agent_action(obs):
@@ -78,24 +84,27 @@ def llm_agent_action(obs):
             route_info.append(f"  {r['route_id']}: {r.get('from_region','?')} → {r.get('to_region','?')} ({r.get('current_transit_days','?')}d, ${r.get('cost_per_barrel','?')}/bbl, cap {r.get('capacity_per_day',0)//1_000_000}M/day)")
     routes_str = "\n".join(route_info) if route_info else "  None available"
     
-    ful = obs.get('demand_fulfillment', {})
-    ful_str = ", ".join([f"{k}: {v:.0%}" for k, v in ful.items()]) if ful else "unknown"
-    
-    reserves = obs.get('reserve_levels', {})
-    res_str = ", ".join([f"{k}: {v.get('days_of_cover',0):.0f}d" for k, v in reserves.items() if v.get('capacity', 0) > 0]) if reserves else "unknown"
+    # Calculate structural deficits for LLM context
+    deficits = []
+    for r in obs.get("regions", []):
+        if r.get("region_type") == "consumer":
+            d = r.get("demand", 0)
+            o = r.get("current_output", 0)
+            if d > o:
+                deficits.append(f"{r['region_id']}: needs {d-o} bbl/day")
+    deficit_str = ", ".join(deficits) if deficits else "None"
 
     system_prompt = """You are a fuel supply chain AI. Respond with ONLY a JSON array, no other text.
 Rules:
-- Use ship_fuel to send oil from producers to consumers via routes
-- Use hold ONLY if ALL consumers have >95% fulfillment
-- Always use exact route_id from Available Routes
+- Ship fuel PROACTIVELY every single day to cover the 'Daily Deficits' for consumer regions.
+- Do NOT wait for reserves to drop. Transit takes days, you must act now.
+- Always use exact route_id from Available Routes.
 - volume = integer (barrels/day), max is route capacity"""
 
     user_prompt = f"""Day {obs.get('current_day', 0)}/{obs.get('total_days', 30)} | Budget: ${obs.get('remaining_budget', 0):,.0f}
 Task: {obs.get('task_description', '')}
+Daily Deficits (Demand - Output): {deficit_str}
 Shortages: {obs.get('markets_in_shortage', [])}
-Fulfillment: {ful_str}
-Reserves: {res_str}
 
 Routes:
 {routes_str}
@@ -198,7 +207,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     if args.task == "all":
-        tasks = ["easy_refinery_maintenance", "medium_multi_crisis", "hard_hormuz_crisis"]
+        tasks = [
+            "very_easy_startup", 
+            "easy_refinery_maintenance", 
+            "medium_multi_crisis", 
+            "hard_hormuz_crisis",
+            "extreme_global_crisis"
+        ]
         for t in tasks:
             run_episode(t)
     else:

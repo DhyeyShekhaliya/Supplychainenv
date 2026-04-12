@@ -34,4 +34,5 @@ def grade_episode(task_id, daily_fulfillment_history, total_spent,
              reserve_score * 0.15)
 
     # Clamp strictly to (0, 1) exclusive — hackathon rejects 0.0 and 1.0
-    return round(min(max(score, 0.001), 0.999), 4)
+    safe_score = float(min(max(score, 0.000001), 0.999999))
+    return round(safe_score, 5)
