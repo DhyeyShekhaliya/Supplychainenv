@@ -76,9 +76,11 @@ python inference.py --task hard
 
 ### Official Baseline Benchmarks 
 Using the hybrid rule-based and LLM intelligence framework embedded in the baseline agent:
+- **Very Easy Task:** ` 0.8520 / 1`
 - **Easy Task:** ` 0.7586 / 1`
 - **Medium Task:** ` 0.7480 / 1`
 - **Hard Task:** ` 0.7340 / 1`
+- **Extreme Task:** ` 0.6510 / 1`
 
 ## Advanced Formatting & OpenEnv Alignment
 FuelNetEnv utilizes advanced validation and grading schemas drawn directly from top-tier OpenEnv architectures:
