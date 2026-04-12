@@ -123,12 +123,12 @@ HARD_DISRUPTIONS = [
 ]
 
 def load_disruptions(task_id: str):
-    import copy
-    if "easy" in task_id:
-        return [d.copy(deep=True) for d in EASY_DISRUPTIONS]
-    elif "medium" in task_id:
-        return [d.copy(deep=True) for d in MEDIUM_DISRUPTIONS]
-    elif "hard" in task_id:
-        return [d.copy(deep=True) for d in HARD_DISRUPTIONS]
-    else:
-        return []
+    # Match exact task ids first to avoid accidental substring matches
+    # (e.g., "very_easy_startup" matching "easy").
+    disruption_map = {
+        "easy_refinery_maintenance": EASY_DISRUPTIONS,
+        "medium_multi_crisis": MEDIUM_DISRUPTIONS,
+        "hard_hormuz_crisis": HARD_DISRUPTIONS,
+    }
+    source = disruption_map.get(task_id, [])
+    return [d.model_copy(deep=True) for d in source]

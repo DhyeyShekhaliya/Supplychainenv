@@ -261,8 +261,8 @@
         
         <div class="terminal-container">
             <div class="terminal-tabs">
-                <div class="tab active" onclick="switchTab('agent')">Agent Log</div>
-                <div class="tab" onclick="switchTab('json')">Raw JSON</div>
+                <div class="tab active" onclick="switchTab(event, 'agent')">Agent Log</div>
+                <div class="tab" onclick="switchTab(event, 'json')">Raw JSON</div>
             </div>
             <div class="terminal-content" id="logContent">
                 <div style="color:var(--text-muted)">// Awaiting environment initialization...</div>
@@ -474,10 +474,10 @@
         renderLogs();
     }
 
-    function switchTab(tab) {
+    function switchTab(evt, tab) {
         currentTab = tab;
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        event.target.classList.add('active');
+        evt.currentTarget.classList.add('active');
         renderLogs();
     }
 

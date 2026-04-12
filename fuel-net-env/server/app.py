@@ -1,7 +1,7 @@
 import os
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from typing import Union, List
 import uvicorn
@@ -23,7 +23,7 @@ if os.path.exists(static_dir):
 async def global_exception_handler(request, exc):
     print(f"🔥 SERVER CRASH: {exc}")
     traceback.print_exc()
-    return HTTPException(status_code=500, detail=str(exc))
+    return JSONResponse(status_code=500, content={"detail": str(exc)})
 
 @app.get("/", response_class=FileResponse)
 def index():
